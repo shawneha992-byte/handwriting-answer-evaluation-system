@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AnswerSheet AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg1:#E6F8FD;--bg2:#4FC3F0;--ink:#10105A;--pri:#6C4FD8;--deep:#4A2C8F;--sun:#F7C535;--lav:#E4DBFB;--cream:#FFF6E5;--card:#fff;--okt:#1b7f56;--badt:#b8431f;--ok:#2FB67C;--bad:#F2704F;--mut:#5b5b8a;--line:#e3def5;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg1:#14123a;--bg2:#1d3a66;--ink:#f1efff;--pri:#7b5fe6;--deep:#2a1a5a;--lav:#2e2660;--cream:#2b2748;--card:#1e1b45;--okt:#5fe0a6;--badt:#ff9a7e;--mut:#aaa6d6;--line:#3a3570;color-scheme:dark}}
+:root[data-theme="dark"]{--bg1:#14123a;--bg2:#1d3a66;--ink:#f1efff;--pri:#7b5fe6;--deep:#2a1a5a;--lav:#2e2660;--cream:#2b2748;--card:#1e1b45;--okt:#5fe0a6;--badt:#ff9a7e;--mut:#aaa6d6;--line:#3a3570;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;font:500 15px/1.5 Nunito,system-ui,sans-serif;color:var(--ink);background:var(--bg1) linear-gradient(180deg,var(--bg1),var(--bg2)) fixed;min-height:100vh}
+.app{display:grid;grid-template-columns:210px 1fr;min-height:100vh}
+nav{background:var(--deep);color:#fff;padding:20px 14px;display:flex;flex-direction:column;gap:6px}
+nav b{font-size:19px;margin-bottom:14px;display:block}
+nav a{color:#e9e2ff;text-decoration:none;padding:10px 12px;border-radius:12px;font-weight:700}
+nav a.on{background:var(--sun);color:#10105A}
+main{padding:24px;max-width:1100px;width:100%;min-width:0}
+@media(max-width:760px){.app{grid-template-columns:1fr}nav{flex-direction:row;overflow-x:auto;align-items:center;padding:12px}nav b{margin:0 8px 0 0;white-space:nowrap}nav a{white-space:nowrap}main{padding:16px}}
+.card{background:var(--card);border-radius:20px;padding:20px;box-shadow:0 6px 24px #10105a1f;margin-bottom:18px}
+h1{font-size:28px;margin:0 0 6px;font-weight:800;line-height:1.2}h2{font-size:19px;margin:0 0 12px}p{margin:0 0 10px}
+.mut{color:var(--mut)}
+.btn{border:0;border-radius:12px;padding:10px 18px;font:800 14px Nunito,sans-serif;cursor:pointer;background:var(--pri);color:#fff}.btn:hover{filter:brightness(.92)}
+.btn.sun{background:var(--sun);color:#10105A}.btn.out{background:transparent;color:var(--pri);box-shadow:inset 0 0 0 2px var(--pri)}.btn[disabled]{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:18px}
+.stat{background:var(--cream);border-radius:16px;padding:14px}.stat b{font-size:26px;display:block}.stat span{color:var(--mut);font-size:13px}
+.wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}
+th{background:var(--deep);color:#fff;text-align:left;padding:10px;white-space:nowrap}th[data-a]{cursor:pointer}
+td{padding:9px 10px;border-bottom:1px solid var(--line)}tr[data-a]:hover{background:var(--lav);cursor:pointer}
+input,select{font:inherit;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:10px;padding:7px 10px;max-width:100%}
+.chip{display:inline-block;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:800;background:var(--lav);color:var(--ink)}
+.chip.ok{background:#2FB67C2e;color:var(--okt)}.chip.bad{background:#F2704F2e;color:var(--badt)}.chip.warn{background:#F7C53559;color:var(--ink)}
+.badt{color:var(--badt);font-weight:800}
+.prog{height:12px;border-radius:9px;background:var(--lav);overflow:hidden;margin:8px 0 14px}.prog i{display:block;height:100%;background:var(--pri);transition:width .4s}
+.drop{display:block;border:3px dashed var(--pri);border-radius:18px;padding:30px;text-align:center;background:var(--cream);cursor:pointer;margin-bottom:12px}
+.steps{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}.steps span{padding:6px 14px;border-radius:99px;background:var(--lav);font-weight:800;font-size:13px}
+.steps .on{background:var(--pri);color:#fff}.steps .done{background:var(--ok);color:#10105A}
+.err{background:#F2704F2e;color:var(--badt);border-radius:14px;padding:12px 16px;margin-bottom:16px;font-weight:700}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.row.sp{justify-content:space-between;margin-top:16px}
+.hero{display:flex;align-items:center;gap:22px;background:var(--lav);flex-wrap:wrap}.hero svg{width:140px;flex:none}.hero div{flex:1;min-width:220px}
+.hist{display:flex;align-items:flex-end;gap:14px;height:160px}.hist div{flex:1;text-align:center;font-size:12px;display:flex;flex-direction:column;justify-content:flex-end;height:100%}.hist i{display:block;background:var(--pri);border-radius:8px 8px 0 0;margin-bottom:4px}
+.keygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:8px;margin-top:12px}.keygrid input{width:100%}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(450px,100%);background:var(--card);box-shadow:-8px 0 30px #10105a55;padding:20px;padding-top:calc(20px + env(safe-area-inset-top,0px));overflow:auto;z-index:20}
+.ov{position:fixed;inset:0;background:#10105a99;display:grid;place-items:center;z-index:30;padding:16px}.ov .card{width:min(400px,100%);margin:0}
+.toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg1);padding:10px 18px;border-radius:12px;z-index:40;font-weight:700}
+label.f{display:block;margin-bottom:12px;font-weight:700}label.f input,label.f select{display:block;margin-top:4px;width:100%;max-width:360px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const API=location.protocol==='file:'?'http://127.0.0.1:8000':'';
+const $=s=>document.querySelector(s),E=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const S={step:1,title:'',paperName:'',keyName:'',files:[],Q:[],neg:0,busy:'',err:'',exam:null,exams:[],dash:null,res:null,sub:[],un:[],cfg:null,sort:'roll_no',dir:1,q:'',sel:null,modal:null};
+let T;
+async function api(p,o){let r;try{r=await fetch(API+p,o)}catch(e){throw new Error('Cannot reach the server. Start the backend: uvicorn app.main:app --reload')}
+ if(!r.ok){let m='Request failed ('+r.status+')';try{const j=await r.json();m=typeof j.detail=='string'?j.detail:JSON.stringify(j.detail)}catch(e){}throw new Error(m)}return r.json()}
+function toast(m){const d=document.createElement('div');d.className='toast';d.setAttribute('role','status');d.textContent=m;document.body.appendChild(d);setTimeout(()=>d.remove(),3200)}
+const ROBOT='<svg viewBox="0 0 120 130" aria-hidden="true"><line x1="60" y1="8" x2="60" y2="22" stroke="#4A2C8F" stroke-width="4"/><circle cx="60" cy="7" r="6" fill="#F2704F"/><rect x="22" y="20" width="76" height="58" rx="26" fill="#F7C535"/><circle cx="44" cy="48" r="9" fill="#fff"/><circle cx="76" cy="48" r="9" fill="#fff"/><circle cx="46" cy="49" r="4" fill="#4A2C8F"/><circle cx="78" cy="49" r="4" fill="#4A2C8F"/><path d="M48 66q12 9 24 0" stroke="#4A2C8F" stroke-width="4" fill="none" stroke-linecap="round"/><rect x="34" y="84" width="52" height="40" rx="16" fill="#F7C535"/><rect x="48" y="94" width="24" height="20" rx="8" fill="#6C4FD8"/></svg>';
+const stat=(b,s)=>`<div class="stat"><b>${b}</b><span>${s}</span></div>`;
+const TOT=()=>S.Q.reduce((a,q)=>a+(+q.marks||0),0);
+const route=()=>{const h=location.hash.slice(1);return PG[h]?h:'dashboard'};
+const empty=(t,p)=>`<div class="card hero">${ROBOT}<div><h1>${t}</h1><p class="mut">${p}</p><a href="#create"><button class="btn sun" type="button">Create new exam</button></a></div></div>`;
+
+function dashboard(){const d=S.dash;if(!d)return'<p>Loading…</p>';if(!d.exams)return empty('Check a whole class in minutes','Upload the question paper once, then every student’s answer sheet. The AI reads them and the app scores them.');
+return `<div class="card hero">${ROBOT}<div><h1>Check a whole class in minutes</h1><p class="mut">Upload the question paper once, then drop in every student’s answer sheet. The AI reads, checks and scores them.</p><a href="#create"><button class="btn sun" type="button">Create new exam</button></a></div></div>
+<div class="stats">${stat(d.exams,'Exams created')}${stat(d.sheets_checked,'Sheets checked')}${stat(d.average+'%','Average score')}${stat(d.needs_review,'Sheets needing review')}</div>
+<div class="card"><h2>Recent exams</h2><div class="wrap"><table><tr><th>Exam</th><th>Sheets</th><th>Status</th></tr>${d.recent.map(e=>`<tr data-a="goto" data-i="${e.id}" tabindex="0"><td>${E(e.title)}</td><td>${e.sheets}</td><td><span class="chip ${e.status=='Done'?'ok':'warn'}">${e.status}${e.needs_review?' ('+e.needs_review+' to review)':''}</span></td></tr>`).join('')}</table></div></div>`}
+
+function drop(k,label,hint,acc,multi){return `<label class="drop" data-f="${k}"><input type="file" hidden ${multi?'multiple':''} accept="${acc}" data-c="file" data-k="${k}"><h2>${label}</h2><span class="mut">${hint}</span></label>`}
+function create(){const names=['Question paper','Check questions','Answer key','Student sheets'];
+let b='',ok=!S.busy;
+if(S.step==1){ok=ok&&!!S.paperName;b=`<h2>Upload the question paper</h2>${drop('paper','Drop the question paper here','One PDF or image per exam. The AI reads the questions, marks and negative marking.','.pdf,.jpg,.jpeg,.png')}${S.paperName?`<p>Read: <span class="chip ok">${E(S.paperName)}</span> ${S.Q.length} questions found</p>`:''}`}
+if(S.step==2){b=`<h2>Check what the AI read</h2><div class="row"><label>Exam title <input value="${E(S.title)}" data-c="title"></label><label>Negative marking per wrong answer <input type="number" step="0.25" max="0" value="${S.neg}" data-c="neg" style="width:90px"></label><span class="chip">Total marks: ${TOT()}</span></div>
+<div class="wrap"><table><tr><th>Q</th><th>Question</th><th>Type</th><th>Marks</th></tr>${S.Q.map((q,i)=>`<tr><td>${q.number}</td><td><input value="${E(q.text)}" data-c="qt" data-i="${i}" aria-label="Question ${q.number} text" style="width:100%;min-width:220px"></td><td><select data-c="qy" data-i="${i}" aria-label="Question ${q.number} type"><option${q.type=='MCQ'?' selected':''}>MCQ</option><option${q.type=='Numeric'?' selected':''}>Numeric</option></select></td><td><input type="number" min="0" value="${q.marks}" data-c="qm" data-i="${i}" aria-label="Question ${q.number} marks" style="width:70px"></td></tr>`).join('')}</table></div>`}
+if(S.step==3){const full=S.Q.every(q=>String(q.correct).trim()!=='');ok=ok&&full;b=`<h2>Upload the answer key</h2>${drop('key','Drop the answer key here','JPG or PNG image, CSV or Excel (.xlsx). Two columns: question number, correct answer.','.jpg,.jpeg,.png,.csv,.xlsx')}${S.keyName?`<p>Read: <span class="chip ok">${E(S.keyName)}</span></p>`:''}${S.keyName||S.Q.some(q=>q.correct)?`<p>Check the answers below and fix any mistakes. ${full?'':'<span class="chip bad">Some answers are missing</span>'}</p><div class="keygrid">${S.Q.map((q,i)=>`<label>Q${q.number}<input value="${E(q.correct)}" data-c="key" data-i="${i}"></label>`).join('')}</div>`:''}`}
+if(S.step==4){ok=ok&&S.files.length>0;b=`<h2>Upload student answer sheets</h2>${drop('sheets','Drop all answer sheets here','One PDF per student, about 50 per exam. The roll number and name are read from each sheet.','.pdf,.jpg,.jpeg,.png',1)}<p><b>${S.files.length}</b> sheets ready</p><div class="row">${S.files.map((f,i)=>`<span class="chip">${E(f.name)} <button data-a="rm" data-i="${i}" aria-label="Remove ${E(f.name)}" style="border:0;background:none;color:inherit;cursor:pointer;font-weight:800">×</button></span>`).join('')}</div>`}
+return `<div class="steps">${names.map((s,i)=>`<span class="${i+1==S.step?'on':i+1<S.step?'done':''}">${i+1}. ${s}</span>`).join('')}</div><div class="card">${b}${S.busy?`<p><span class="chip warn" role="status">${S.busy}</span></p>`:''}<div class="row sp"><button class="btn out" data-a="step" data-i="${S.step-1}" ${S.step==1||S.busy?'disabled':''}>Back</button>${S.step<4?`<button class="btn" data-a="step" data-i="${S.step+1}" ${ok?'':'disabled'}>${S.step==2?'Confirm questions':S.step==3?'Confirm key':'Next'}</button>`:`<button class="btn sun" data-a="run" ${ok?'':'disabled'}>Start checking</button>`}</div></div>`}
+
+function picker(){return S.exams.length?`<label class="f" style="max-width:360px">Exam<select data-c="exam">${S.exams.map(e=>`<option value="${e.id}"${e.id==S.exam?' selected':''}>${E(e.title)}</option>`).join('')}</select></label>`:''}
+function processing(){if(!S.exams.length)return empty('No batch is running','Create an exam and upload sheets to see them being checked here.');
+const lab={queued:'Queued',reading:'Reading',done:'Done',needs_review:'Needs review'},st=S.sub,done=st.filter(s=>s.status=='done'||s.status=='needs_review').length,fin=st.length>0&&done==st.length;
+return `${picker()}<div class="card hero">${ROBOT}<div><h1>${fin?'All sheets checked':'AI is checking…'}</h1><div class="prog" role="progressbar" aria-valuenow="${st.length?Math.round(done/st.length*100):0}" aria-valuemin="0" aria-valuemax="100"><i style="width:${st.length?done/st.length*100:0}%"></i></div><p class="mut">${done} of ${st.length} sheets finished</p>${fin?'<a href="#results"><button class="btn sun" type="button">View results</button></a>':''}</div></div>
+<div class="card wrap"><table><tr><th>File</th><th>Roll number</th><th>Status</th></tr>${st.map(s=>`<tr><td>${E(s.filename)}</td><td>${s.status=='queued'?'—':s.roll_no?E(s.roll_no):s.status=='reading'?'…':'Unreadable'}</td><td><span class="chip ${s.status=='done'?'ok':s.status=='needs_review'?'bad':s.status=='reading'?'warn':''}">${lab[s.status]}</span></td></tr>`).join('')}</table></div>`}
+
+function rows(){const k=S.sort,q=S.q.toLowerCase();return S.res.rows.filter(x=>!q||(x.name+x.roll_no).toLowerCase().includes(q)).sort((a,b)=>(a[k]>b[k]?1:a[k]<b[k]?-1:0)*S.dir).map(x=>`<tr data-a="open" data-i="${x.id}" tabindex="0"><td>${E(x.roll_no)}</td><td>${E(x.name)}</td><td><b>${x.total}</b></td><td>${S.res.exam.total_marks}</td><td>${x.pct}%</td><td>${x.correct}</td><td>${x.wrong}</td><td>${x.unanswered}</td></tr>`).join('')}
+function results(){if(!S.exams.length)return empty('No results yet','Results appear here once you have checked a batch of sheets.');if(!S.res)return picker()+'<p>Loading…</p>';
+const r=S.res,p=r.rows.map(x=>x.pct),bins=[0,0,0,0];p.forEach(v=>bins[v<40?0:v<60?1:v<80?2:3]++);
+const th=(k,l)=>`<th data-a="sort" data-k="${k}" tabindex="0">${l}${S.sort==k?(S.dir>0?' ▲':' ▼'):''}</th>`;
+return `${picker()}<h1>${E(r.exam.title)}</h1><p class="mut">Total marks ${r.exam.total_marks}. Negative marking ${r.exam.negative_marking} per wrong answer.</p>
+<div class="stats">${stat(r.stats.students,'Students checked')}${stat(r.stats.average+'%','Class average')}${stat(r.stats.highest+'%','Highest')}${stat(r.stats.lowest+'%','Lowest')}${stat(r.stats.needs_review,'Need review')}</div>
+<div class="card"><div class="row sp" style="margin:0 0 12px"><input id="q" type="search" placeholder="Search name or roll number" value="${E(S.q)}" aria-label="Search students"><button class="btn out" data-a="xl">Download Excel</button></div>
+<div class="wrap"><table><tr>${th('roll_no','Roll number')}${th('name','Name')}${th('total','Marks')}<th>Total</th>${th('pct','Percentage')}${th('correct','Correct')}${th('wrong','Wrong')}${th('unanswered','Unanswered')}</tr><tbody id="tb">${rows()}</tbody></table></div></div>
+<div class="card"><h2>Score distribution</h2><div class="hist">${bins.map((n,i)=>`<div><i style="height:${n/Math.max(...bins,1)*110}px"></i>${n}<br><span class="mut">${['Below 40%','40–59%','60–79%','80–100%'][i]}</span></div>`).join('')}</div></div>`}
+
+function drawer(){if(S.sel==null||!S.res)return'';const x=S.res.rows.find(r=>r.id==S.sel);if(!x)return'';
+return `<aside class="drawer" aria-label="Student detail"><div class="row sp" style="margin-top:0"><h2 style="margin:0">${E(x.name)}</h2><button class="btn out" data-a="close">Close</button></div><p class="mut">Roll ${E(x.roll_no)}. Score <b>${x.total} / ${S.res.exam.total_marks}</b> (${x.pct}%)${x.manual?' <span class="chip warn">Marked manually</span>':''}</p>
+<div class="wrap"><table><tr><th>Q</th><th>Answer</th><th>Key</th><th>Result</th><th>Marks</th></tr>${x.answers.map(g=>`<tr><td>${g.number}</td><td>${E(g.student_answer||'—')}</td><td>${E(g.correct_answer)}</td><td><span class="chip ${g.result=='correct'?'ok':g.result=='wrong'||g.result=='unreadable'?'bad':''}">${g.result}</span></td><td class="${g.marks<0?'badt':''}">${g.marks>0?'+':''}${g.marks}</td></tr>`).join('')}</table></div></aside>`}
+
+function unreadable(){if(!S.exams.length)return empty('Nothing to review','Sheets the AI cannot read with confidence are listed here.');
+return `${picker()}<h1>Unreadable sheets</h1><p class="mut">The AI did not guess on these. Check each sheet by hand and enter the marks.</p><div class="card wrap">${S.un.length?`<table><tr><th>Roll number or file</th><th>Unreadable</th><th>Reason</th><th></th></tr>${S.un.map(u=>`<tr><td>${E(u.roll_no||'(unreadable)')} (${E(u.filename)})</td><td>${E(u.detail)}</td><td>${E(u.reason)}</td><td><button class="btn" data-a="man" data-i="${u.id}">Mark manually</button></td></tr>`).join('')}</table>`:'<p>No unreadable sheets for this exam.</p>'}</div>`}
+function modal(){if(S.modal==null)return'';const u=S.un.find(x=>x.id==S.modal),t=S.res?S.res.exam.total_marks:'';return `<div class="ov"><div class="card" role="dialog" aria-label="Mark manually"><h2>Mark ${E(u?u.filename:'')}</h2><label class="f">Marks<input id="mv" type="number" min="0" value="0"></label><div class="row"><button class="btn" data-a="save">Save marks</button><button class="btn out" data-a="close">Cancel</button></div></div></div>`}
+function preferences(){const c=S.cfg;return `<h1>Preferences</h1><div class="card">${c?`<p><b>AI provider:</b> ${c.provider} (${E(c.model)}) ${c.llm_ready?'<span class="chip ok">Ready</span>':'<span class="chip bad">API key missing</span>'}</p><p><b>Database:</b> ${E(c.database)}</p><p class="mut">These are set in <code>backend/.env</code>. API keys are kept on the server, never in the browser.</p>`:'<p>Loading…</p>'}</div>`}
+
+const NAV=[['dashboard','Dashboard'],['create','Create exam'],['processing','Processing'],['results','Results'],['unreadable','Unreadable sheets'],['preferences','Preferences']],PG={dashboard,create,processing,results,unreadable,preferences};
+function render(){const r=route();$('#app').innerHTML=`<div class="app"><nav><b>AnswerSheet AI</b>${NAV.map(n=>`<a href="#${n[0]}" class="${n[0]==r?'on':''}">${n[1]}</a>`).join('')}</nav><main>${S.err?`<div class="err" role="alert">${E(S.err)}</div>`:''}${PG[r]()}</main></div>${drawer()}${modal()}`}
+
+async function poll(){try{S.sub=await api(`/api/exams/${S.exam}/status`);S.err=''}catch(e){S.err=e.message}if(route()=='processing')render();if(S.sub.length&&S.sub.every(s=>s.status=='done'||s.status=='needs_review'))clearInterval(T)}
+async function load(){clearInterval(T);S.err='';const r=route();
+ try{if(r=='dashboard')S.dash=await api('/api/dashboard');
+  if(r=='preferences')S.cfg=await api('/api/config');
+  if(['results','unreadable','processing'].includes(r)){S.exams=await api('/api/exams');if(!S.exams.find(e=>e.id==S.exam))S.exam=S.exams.length?S.exams[0].id:null;
+   if(S.exam!=null){if(r=='results')S.res=await api(`/api/exams/${S.exam}/results`);if(r=='unreadable')S.un=await api(`/api/exams/${S.exam}/unreadable`);if(r=='processing'){await poll();T=setInterval(poll,2000)}}}
+ }catch(e){S.err=e.message}render()}
+
+async function send(path,fd,busy){S.busy=busy;S.err='';render();try{return await api(path,{method:'POST',body:fd})}catch(e){toast(e.message);return null}finally{S.busy='';render()}}
+async function handleFiles(k,list){const f=[...list];if(!f.length)return;
+ if(k=='sheets'){S.files=S.files.concat(f);render();return}
+ const fd=new FormData();fd.append('file',f[0]);
+ if(k=='paper'){const r=await send('/api/exams/parse-paper',fd,'Reading the question paper…');if(r){S.Q=r.questions.map(q=>({number:q.number,text:q.text||'',type:q.type=='Numeric'?'Numeric':'MCQ',marks:q.marks,correct:q.correct_answer||''}));S.neg=Math.min(0,+r.negative_marking||0);S.title=r.title||f[0].name.replace(/\.[^.]+$/,'');S.paperName=f[0].name;render()}}
+ if(k=='key'){const r=await send('/api/exams/parse-key',fd,'Reading the answer key…');if(r){S.Q.forEach(q=>{if(r.answers[q.number]!=null)q.correct=r.answers[q.number]});S.keyName=f[0].name;render()}}}
+async function run(){S.busy='Creating exam and uploading sheets…';S.err='';render();
+ try{const ex=await api('/api/exams',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:S.title,negative_marking:S.neg,questions:S.Q.map(q=>({number:q.number,text:q.text,type:q.type,marks:+q.marks,correct_answer:String(q.correct)}))})});
+  const fd=new FormData();S.files.forEach(f=>fd.append('files',f));await api(`/api/exams/${ex.id}/sheets`,{method:'POST',body:fd});
+  S.exam=ex.id;S.step=1;S.Q=[];S.files=[];S.paperName=S.keyName='';S.busy='';location.hash='processing'}
+ catch(e){S.busy='';toast(e.message);render()}}
+
+document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t)return;const a=t.dataset.a,i=+t.dataset.i;
+ if(a=='step')S.step=i;else if(a=='rm')S.files.splice(i,1);else if(a=='run'){run();return}
+ else if(a=='open')S.sel=i;else if(a=='close'){S.sel=null;S.modal=null}else if(a=='man')S.modal=i;
+ else if(a=='goto'){S.exam=i;location.hash='results';return}
+ else if(a=='sort'){const k=t.dataset.k;S.dir=S.sort==k?-S.dir:1;S.sort=k}
+ else if(a=='xl'){window.open(`${API}/api/exams/${S.exam}/export`);return}
+ else if(a=='save'){const id=S.modal,v=+$('#mv').value;api(`/api/exams/submissions/${id}/manual`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({marks:v})}).then(()=>{S.modal=null;toast('Marks saved');load()}).catch(x=>toast(x.message));return}
+ render()});
+document.addEventListener('keydown',e=>{if(e.key=='Enter'&&e.target.matches('tr[data-a],th[data-a]'))e.target.click()});
+document.addEventListener('input',e=>{if(e.target.id=='q'){S.q=e.target.value;$('#tb').innerHTML=rows()}});
+document.addEventListener('change',e=>{const t=e.target,c=t.dataset.c;if(!c)return;const i=+t.dataset.i,v=t.value;
+ if(c=='file'){handleFiles(t.dataset.k,t.files);t.value='';return}
+ if(c=='exam'){S.exam=+v;S.res=null;load();return}
+ if(c=='neg')S.neg=Math.min(0,+v||0);else if(c=='title')S.title=v;else if(c=='qt')S.Q[i].text=v;else if(c=='qy')S.Q[i].type=v;else if(c=='qm')S.Q[i].marks=Math.max(0,+v||0);else if(c=='key')S.Q[i].correct=v;
+ render()});
+document.addEventListener('dragover',e=>{if(e.target.closest('[data-f]'))e.preventDefault()});
+document.addEventListener('drop',e=>{const d=e.target.closest('[data-f]');if(d){e.preventDefault();handleFiles(d.dataset.f,e.dataTransfer.files)}});
+addEventListener('hashchange',()=>{S.sel=null;S.modal=null;S.res=null;load()});
+render();load();
+</script>
+</body>
+</html>
