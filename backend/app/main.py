@@ -12,7 +12,7 @@ from app.routes import exams, system
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    init_db()  # creates the MySQL database and tables on first run
+    init_db()  # creates missing PostgreSQL tables on first run
     yield
 
 

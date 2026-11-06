@@ -63,3 +63,37 @@ def test_full_pipeline():
         assert d["exams"] == 1 and d["sheets_checked"] >= 1
         assert c.get("/api/config").json()["llm_ready"] is True
         assert c.post("/api/exams/parse-paper", files={"file": ("x.exe", b"x")}).status_code == 400
+
+
+def test_answer_key_text_parser():
+    from app.routes.exams import key_from_text
+    parsed = key_from_text("Q1: a\n2. B\nQuestion 3 - 42\n4) 3/4\nnoise")
+    assert parsed == {"1": "A", "2": "B", "3": "42", "4": "3/4"}
+
+
+def test_parse_key_uses_local_extraction_before_gemini(monkeypatch):
+    from app.services import question_paper_reader, llm_service
+
+    monkeypatch.setattr(
+        question_paper_reader,
+        "read_paper",
+        lambda data, suffix: {
+            "text": "Q1: A\n2. 42\nQ3 - C",
+            "pages": [{"page": 1, "method": "ocr", "characters": 18, "needs_review": True}],
+            "file_hash": "test",
+            "usable": False,
+        },
+    )
+    monkeypatch.setattr(
+        llm_service,
+        "parse_key_image",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("Gemini should not be called")),
+    )
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/exams/parse-key",
+            files={"file": ("key.pdf", b"fake-pdf", "application/pdf")},
+        )
+    assert response.status_code == 200
+    assert response.json()["answers"] == {"1": "A", "2": "42", "3": "C"}
+    assert response.json()["source"] == "tesseract"

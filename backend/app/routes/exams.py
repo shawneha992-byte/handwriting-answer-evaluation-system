@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 import re
 import uuid
 from pathlib import Path
@@ -11,8 +12,9 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.models import Exam, Question, Submission
-from app.services import llm_service
+from app.models import Exam, PaperCache, Question, Submission
+from app.services import llm_service, question_paper_reader, question_parser
+from app.services.answer_key_reader import AnswerKeyReadError, extract_answer_key
 from app.services.export import build_workbook
 from app.services.processing import MIME, run_batch
 
@@ -61,8 +63,11 @@ def results_for(exam: Exam) -> list[dict]:
         rows.append({
             "id": s.id, "roll_no": s.roll_no or "-", "name": s.student_name or "-", "total": s.total_score or 0,
             "pct": round((s.total_score or 0) / exam.total_marks * 100) if exam.total_marks else 0,
-            "correct": sum(a["result"] == "correct" for a in ans), "wrong": sum(a["result"] == "wrong" for a in ans),
-            "unanswered": sum(a["result"] == "unanswered" for a in ans), "manual": s.manual, "answers": ans,
+            # Total-only manual marks have no question-level grading data.
+            "correct": sum(a["result"] == "correct" for a in ans) if ans else None,
+            "wrong": sum(a["result"] == "wrong" for a in ans) if ans else None,
+            "unanswered": sum(a["result"] == "unanswered" for a in ans) if ans else None,
+            "manual": s.manual, "answers": ans,
         })
     return sorted(rows, key=lambda r: str(r["roll_no"]))
 
@@ -74,12 +79,36 @@ def review_for(exam: Exam) -> list[dict]:
 
 # ---------------------------------------------------------------- step 1-3: read paper and key (nothing saved yet)
 @router.post("/parse-paper")
-def parse_paper(file: UploadFile = File(...)):
+def parse_paper(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Cheapest route first: cache -> local text/OCR + rules -> Gemini on text -> Gemini on the file."""
     data, suffix = read_upload(file, FILE_TYPES)
-    try:
-        return llm_service.parse_paper(data, MIME[suffix])
-    except llm_service.LLMError as exc:
-        raise HTTPException(502, str(exc))
+    doc = question_paper_reader.read_paper(data, suffix)
+    pages = doc["pages"]
+
+    cached = db.get(PaperCache, doc["file_hash"])
+    if cached:
+        return {**json.loads(cached.result_json), "source": "cache", "pages": pages}
+
+    result, source = None, ""
+    if doc["usable"]:
+        result, source = question_parser.parse_rules(doc["text"]), "rules"
+        if result is None and settings.LLM_PROVIDER != "mock":
+            try:
+                result, source = llm_service.parse_paper_text(doc["text"]), "gemini-text"
+            except llm_service.LLMError:
+                result = None
+    if result is None:  # no usable local text (no OCR installed, diagram-only pages, ...): let Gemini look at the file
+        try:
+            result = llm_service.parse_paper(data, MIME[suffix])
+            source = "mock" if settings.LLM_PROVIDER == "mock" else "gemini-file"
+        except llm_service.LLMError as exc:
+            raise HTTPException(502, str(exc))
+
+    result = question_parser.normalise(result)
+    if result["questions"] and source != "mock":
+        db.merge(PaperCache(file_hash=doc["file_hash"], result_json=json.dumps(result), source=source))
+        db.commit()
+    return {**result, "source": source, "pages": pages}
 
 
 @router.post("/parse-key")
@@ -93,12 +122,26 @@ def parse_key(file: UploadFile = File(...)):
         answers = key_from_table(ws.iter_rows(values_only=True))
     else:
         try:
-            answers = llm_service.parse_key_image(data, MIME[suffix]).get("answers", {})
-        except llm_service.LLMError as exc:
-            raise HTTPException(502, str(exc))
+            answers, source, ocr_note = extract_answer_key(data, suffix)
+        except AnswerKeyReadError as exc:
+            raise HTTPException(
+                422,
+                f"Could not extract answers from this file. {exc} "
+                "Try a clearer image, a numbered key, or lines such as 'Answer = 3601'.",
+            ) from exc
+        if not answers:
+            raise HTTPException(
+                422,
+                "No answers detected. Use numbered rows such as '1. 3601' or solved-work lines such as 'Answer = 3601'.",
+            )
+        return {
+            "answers": {str(k): str(v) for k, v in answers.items()},
+            "source": source,
+            "ocr_note": ocr_note,
+        }
     if not answers:
         raise HTTPException(422, "No answers found. Use two columns: question number, correct answer.")
-    return {"answers": {str(k): str(v) for k, v in answers.items()}}
+    return {"answers": {str(k): str(v) for k, v in answers.items()}, "source": "table"}
 
 
 # ---------------------------------------------------------------- create exam and upload sheets
@@ -192,16 +235,31 @@ def export(exam_id: int, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------- teacher enters marks for an unreadable sheet
 class ManualIn(BaseModel):
     marks: float
+    name: str | None = None
+    roll_no: str | None = None
 
 
 @router.post("/submissions/{sub_id}/manual")
 def manual_marks(sub_id: int, body: ManualIn, db: Session = Depends(get_db)):
+    """Save a teacher-entered total and optional identity details.
+
+    A total-only manual mark deliberately does not fabricate question-level
+    correct/wrong counts. Those are shown as unavailable in the results table.
+    """
     sub = db.get(Submission, sub_id)
     if not sub:
         raise HTTPException(404, "Sheet not found")
     total = sub.exam.total_marks
     if not 0 <= body.marks <= total:
         raise HTTPException(422, f"Marks must be between 0 and {total}")
-    sub.total_score, sub.manual, sub.status = body.marks, True, "done"
+    if body.name is not None:
+        sub.student_name = body.name.strip()[:120] or None
+    if body.roll_no is not None:
+        sub.roll_no = body.roll_no.strip()[:50] or None
+    sub.total_score = float(body.marks)
+    sub.manual = True
+    sub.status = "done"
+    sub.review_reason = None
+    sub.review_detail = None
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "manual_total_only": len(sub.answers) == 0}

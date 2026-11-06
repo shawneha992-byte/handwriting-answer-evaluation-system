@@ -45,6 +45,7 @@ class Submission(Base):
     review_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     review_detail: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     exam: Mapped[Exam] = relationship(back_populates="submissions")
     answers: Mapped[list["Answer"]] = relationship(back_populates="submission", order_by="Answer.question_number", cascade="all, delete-orphan")
 
@@ -60,3 +61,12 @@ class Answer(Base):
     marks: Mapped[float] = mapped_column(Float, default=0)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     submission: Mapped[Submission] = relationship(back_populates="answers")
+
+
+class PaperCache(Base):
+    """Question papers already read, keyed by the SHA-256 of the uploaded file, so the same paper is never processed twice."""
+    __tablename__ = "paper_cache"
+    file_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    result_json: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(30), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
