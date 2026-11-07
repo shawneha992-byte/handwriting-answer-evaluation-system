@@ -1,0 +1,14 @@
+
+.git
+.venv
+venv
+__pycache__
+*.pyc
+.env
+.auth_secret
+backend/.env
+backend/.auth_secret
+backend/uploads/*
+backend/dev.db
+backend/*.db
+.pytest_cache
