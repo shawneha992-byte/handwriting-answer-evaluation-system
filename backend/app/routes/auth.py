@@ -4,7 +4,9 @@ import time
 from collections import defaultdict
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+import hmac
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -12,7 +14,8 @@ from sqlalchemy.orm import Session
 from app.core.auth_guard import bearer_token
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.security import create_token, decode_token, hash_password, verify_password
+from app.core.mailer import send_reset_email
+from app.core.security import create_token, decode_token, hash_password, password_fingerprint, verify_password
 from app.models import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -23,6 +26,8 @@ REMEMBER_DAYS = 30
 # Simple brute-force brake: too many wrong passwords from one address/email pair pauses sign-in for a while.
 _MAX_FAILS, _WINDOW_SECONDS = 8, 15 * 60
 _fails: dict[tuple, list[float]] = defaultdict(list)
+_MAX_RESET_ASKS = 3  # reset e-mails per address/email pair in the same window
+_asks: dict[tuple, list[float]] = defaultdict(list)
 _DUMMY_HASH = hash_password("not-a-real-password")  # makes unknown emails take as long as wrong passwords
 
 
@@ -31,6 +36,15 @@ class RegisterIn(BaseModel):
     email: str
     password: str
     institution: str | None = None
+
+
+class ForgotIn(BaseModel):
+    email: str
+
+
+class ResetIn(BaseModel):
+    token: str
+    password: str
 
 
 class LoginIn(BaseModel):
@@ -115,3 +129,47 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
 @router.get("/me")
 def me(user: User = Depends(current_user)):
     return public_user(user)
+
+
+# ---------------------------------------------------------------- forgot / reset password
+RESET_ASKED = "If an account exists for that email, a reset link is on its way. It stays valid for {m} minutes."
+BAD_LINK = "This reset link is invalid or has expired. Please request a new one."
+
+
+@router.post("/forgot-password")
+def forgot_password(body: ForgotIn, request: Request, background: BackgroundTasks, db: Session = Depends(get_db)):
+    """Always answers the same way, whether or not the email has an account, so nobody can probe for registered emails."""
+    email = body.email.strip().lower()
+    if not EMAIL_RE.match(email) or len(email) > 254:
+        raise HTTPException(422, "Please enter a valid email address.")
+    key = _throttle_key(request, email)
+    now = time.time()
+    _asks[key] = [t for t in _asks[key] if now - t < _WINDOW_SECONDS]
+    if len(_asks[key]) >= _MAX_RESET_ASKS:
+        raise HTTPException(429, "Too many reset requests. Please wait a few minutes and try again.")
+    _asks[key].append(now)
+
+    user = db.query(User).filter(User.email == email).first()
+    if user and user.is_active:
+        token = create_token(user.id, user.email, settings.RESET_TOKEN_MINUTES * 60, purpose="reset", extra={"pwd": password_fingerprint(user.password_hash)})
+        link = f"{settings.APP_BASE_URL}/#reset?token={token}"  # after the #, so it never reaches server logs
+        background.add_task(send_reset_email, user.email, user.full_name, link, settings.RESET_TOKEN_MINUTES)
+    return {"message": RESET_ASKED.format(m=settings.RESET_TOKEN_MINUTES)}
+
+
+@router.post("/reset-password")
+def reset_password(body: ResetIn, db: Session = Depends(get_db)):
+    data = decode_token(body.token.strip(), purpose="reset")
+    user = db.get(User, int(data["sub"])) if data else None
+    # The link carries a fingerprint of the old password, so it works exactly once.
+    if not user or not user.is_active or not hmac.compare_digest(str(data.get("pwd", "")), password_fingerprint(user.password_hash)):
+        raise HTTPException(400, BAD_LINK)
+    if len(body.password) < 8:
+        raise HTTPException(422, "Password must be at least 8 characters.")
+    if len(body.password) > 128:
+        raise HTTPException(422, "Password must be 128 characters or fewer.")
+    user.password_hash = hash_password(body.password)
+    db.commit()
+    for key in [k for k in _fails if k[1] == user.email]:  # a wrongly locked-out owner can sign in again
+        _fails.pop(key, None)
+    return {"message": "Your password has been changed. You can now sign in."}

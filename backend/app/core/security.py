@@ -64,15 +64,20 @@ def _sign(message: str) -> str:
     return _b64(hmac.new(_secret(), message.encode(), hashlib.sha256).digest())
 
 
-def create_token(user_id: int, email: str, lifetime_seconds: int) -> str:
+def create_token(user_id: int, email: str, lifetime_seconds: int, purpose: str | None = None, extra: dict | None = None) -> str:
+    """Login tokens have no purpose. Other tokens (e.g. password reset) carry one, so they can never be used as a login."""
     header = _b64(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
     now = int(time.time())
-    payload = _b64(json.dumps({"sub": str(user_id), "email": email, "iat": now, "exp": now + lifetime_seconds}, separators=(",", ":")).encode())
+    claims = {"sub": str(user_id), "email": email, "iat": now, "exp": now + lifetime_seconds}
+    if purpose:
+        claims["purpose"] = purpose
+    claims.update(extra or {})
+    payload = _b64(json.dumps(claims, separators=(",", ":")).encode())
     return f"{header}.{payload}.{_sign(f'{header}.{payload}')}"
 
 
-def decode_token(token: str | None) -> dict | None:
-    """Return the token payload, or None if it is missing, tampered with or expired."""
+def decode_token(token: str | None, purpose: str | None = None) -> dict | None:
+    """Return the token payload, or None if it is missing, tampered with, expired or made for a different purpose."""
     if not token:
         return None
     try:
@@ -80,8 +85,13 @@ def decode_token(token: str | None) -> dict | None:
         if not hmac.compare_digest(signature, _sign(f"{header}.{payload}")):
             return None
         data = json.loads(_unb64(payload))
-        if int(data["exp"]) < time.time():
+        if int(data["exp"]) < time.time() or data.get("purpose") != purpose:
             return None
         return data
     except (ValueError, KeyError, TypeError):
         return None
+
+
+def password_fingerprint(password_hash: str) -> str:
+    """Short digest of the current password hash. A reset link carries it, so the link stops working once the password changes."""
+    return hashlib.sha256(password_hash.encode()).hexdigest()[:20]
