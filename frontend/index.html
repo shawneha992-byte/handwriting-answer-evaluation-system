@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AnswerSheet AI</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg1:#E6F8FD;--bg2:#4FC3F0;--ink:#10105A;--pri:#6C4FD8;--deep:#4A2C8F;--sun:#F7C535;--lav:#E4DBFB;--cream:#FFF6E5;--card:#fff;--okt:#1b7f56;--badt:#b8431f;--ok:#2FB67C;--bad:#F2704F;--mut:#5b5b8a;--line:#e3def5;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -47,13 +48,23 @@ input,select{font:inherit;color:var(--ink);background:var(--card);border:2px sol
 .toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg1);padding:10px 18px;border-radius:12px;z-index:40;font-weight:700}
 label.f{display:block;margin-bottom:12px;font-weight:700}label.f input,label.f select{display:block;margin-top:4px;width:100%;max-width:360px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+/* ---- brand logo ---- */
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;line-height:1;white-space:nowrap}
+.brand svg{width:36px;height:36px;flex:none;filter:drop-shadow(0 3px 6px #10105a40)}
+.brand em{font-style:normal;color:var(--sun)}
+nav .brand{font-size:16px;gap:8px;margin-bottom:14px}nav .brand svg{width:32px;height:32px}
+@media(max-width:820px){nav .brand{margin:0 10px 0 0;font-size:17px}}
+.okbox{background:var(--lav);border-left:5px solid var(--ok);border-radius:12px;padding:16px 18px;margin:4px 0 8px;font-weight:700}
+.okbox[hidden]{display:none}
+.okbox p{margin:0 0 8px}.okbox small{display:block;color:var(--mut);font-weight:500}
+.okbox button{margin-top:10px;background:none;border:0;padding:0;color:var(--pri);font:800 14px Nunito,sans-serif;cursor:pointer}
 /* ---- login / registration ---- */
 .auth{min-height:100vh;display:grid;place-items:center;padding:24px}
 .auth-card{display:grid;grid-template-columns:1fr 1fr;width:min(980px,100%);min-height:640px;background:var(--card);border-radius:20px;overflow:hidden;box-shadow:0 20px 60px #10105a40}
 .auth-brand{position:relative;overflow:hidden;color:#fff;padding:34px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(160deg,#4A2C8F 0%,#5a38b8 55%,#6C4FD8 100%);isolation:isolate}
 .auth-brand .blobs{position:absolute;inset:0;width:100%;height:100%;z-index:-1}
 .auth-brand .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px}
-.auth-brand .logo svg{width:44px;height:44px}
+.auth-brand .logo svg{width:46px;height:46px}
 .auth-brand h2{font-size:34px;line-height:1.15;font-weight:800;margin:0 0 10px;color:#fff}
 .auth-brand p{margin:0;color:#e9e2ff;max-width:300px}
 .auth-brand .mascot{width:112px;margin-bottom:14px;filter:drop-shadow(0 8px 14px #10105a55)}
@@ -109,7 +120,8 @@ function toast(m){const d=document.createElement('div');d.className='toast';d.se
 const ROBOT='<svg viewBox="0 0 120 130" aria-hidden="true"><line x1="60" y1="8" x2="60" y2="22" stroke="#4A2C8F" stroke-width="4"/><circle cx="60" cy="7" r="6" fill="#F2704F"/><rect x="22" y="20" width="76" height="58" rx="26" fill="#F7C535"/><circle cx="44" cy="48" r="9" fill="#fff"/><circle cx="76" cy="48" r="9" fill="#fff"/><circle cx="46" cy="49" r="4" fill="#4A2C8F"/><circle cx="78" cy="49" r="4" fill="#4A2C8F"/><path d="M48 66q12 9 24 0" stroke="#4A2C8F" stroke-width="4" fill="none" stroke-linecap="round"/><rect x="34" y="84" width="52" height="40" rx="16" fill="#F7C535"/><rect x="48" y="94" width="24" height="20" rx="8" fill="#6C4FD8"/></svg>';
 const stat=(b,s)=>`<div class="stat"><b>${b}</b><span>${s}</span></div>`;
 const TOT=()=>S.Q.reduce((a,q)=>a+(+q.marks||0),0);
-const route=()=>{let h=location.hash.slice(1);if(!PG[h])h='dashboard';const a=h=='login'||h=='register';if(!S.tok&&!a)return'login';if(S.tok&&a)return'dashboard';return h};
+const AUTHP=['login','register','forgot','reset'];
+const route=()=>{let h=location.hash.slice(1).split('?')[0];if(!PG[h])h='dashboard';const a=AUTHP.includes(h);if(!S.tok&&!a)return'login';if(S.tok&&a&&h!='reset')return'dashboard';return h};
 function go(h){if(location.hash.slice(1)==h)load();else location.hash=h}
 function logout(){clearInterval(T);clearSession();Object.assign(S,{tok:null,user:null,exam:null,exams:[],dash:null,res:null,sub:[],un:[],cfg:null,sel:null,modal:null,err:'',step:1,Q:[],files:[],paperName:'',keyName:'',keySource:'',title:''});go('login')}
 function expire(){toast('Your session has expired. Please sign in again.');logout()}
@@ -155,9 +167,9 @@ return `${picker()}<h1>Unreadable sheets</h1><p class="mut">The AI did not guess
 function modal(){if(S.modal==null)return'';const u=S.un.find(x=>x.id==S.modal),t=S.res?S.res.exam.total_marks:'';return `<div class="ov"><div class="card" role="dialog" aria-label="Mark manually"><h2>Mark ${E(u?u.filename:'')}</h2><label class="f">Student name<input id="mn" value="${E(u?.name||'')}" placeholder="Enter student name"></label><label class="f">Roll number<input id="mr" value="${E(u?.roll_no||'')}" placeholder="Enter roll number"></label><label class="f">Total marks<input id="mv" type="number" min="0" step="0.25" value="0"></label><p class="mut">This is a total-only manual mark. Correct/Wrong question counts will show as — because no individual answers were graded.</p><div class="row"><button class="btn" data-a="save">Save marks</button><button class="btn out" data-a="close">Cancel</button></div></div></div>`}
 function preferences(){const c=S.cfg;return `<h1>Preferences</h1><div class="card">${c?`<p><b>AI provider:</b> ${c.provider} (${E(c.model)}) ${c.llm_ready?'<span class="chip ok">Ready</span>':'<span class="chip bad">API key missing</span>'}</p><p><b>Database:</b> ${E(c.database)}</p>${c.llm_message?`<p class="mut">${E(c.llm_message)}</p>`:''}<p class="mut">These are set in <code>backend/.env</code>. API keys are kept on the server, never in the browser.</p>`:'<p>Loading…</p>'}</div>`}
 
-const NAV=[['dashboard','Dashboard'],['create','Create exam'],['processing','Processing'],['results','Results'],['unreadable','Unreadable sheets'],['preferences','Preferences']],PG={dashboard,create,processing,results,unreadable,preferences,login,register};
-function render(){const r=route();if(r=='login'||r=='register'){const keep=authKeep();$('#app').innerHTML=PG[r]();authRestore(keep);return}
-$('#app').innerHTML=`<div class="app"><nav><b>AnswerSheet AI</b>${NAV.map(n=>`<a href="#${n[0]}" class="${n[0]==r?'on':''}">${n[1]}</a>`).join('')}<div class="nav-user">${S.user?`<b title="${E(S.user.email)}">${E(S.user.full_name)}</b>`:''}<button type="button" data-a="logout">Log out</button></div></nav><main>${S.err?`<div class="err" role="alert">${E(S.err)}</div>`:''}${PG[r]()}</main></div>${drawer()}${modal()}`}
+const NAV=[['dashboard','Dashboard'],['create','Create exam'],['processing','Processing'],['results','Results'],['unreadable','Unreadable sheets'],['preferences','Preferences']],PG={dashboard,create,processing,results,unreadable,preferences,login,register,forgot,reset};
+function render(){const r=route();if(AUTHP.includes(r)){const keep=authKeep();$('#app').innerHTML=PG[r]();authRestore(keep);return}
+$('#app').innerHTML=`<div class="app"><nav><div class="brand">${MARK}<span>AnswerSheet <em>AI</em></span></div>${NAV.map(n=>`<a href="#${n[0]}" class="${n[0]==r?'on':''}">${n[1]}</a>`).join('')}<div class="nav-user">${S.user?`<b title="${E(S.user.email)}">${E(S.user.full_name)}</b>`:''}<button type="button" data-a="logout">Log out</button></div></nav><main>${S.err?`<div class="err" role="alert">${E(S.err)}</div>`:''}${PG[r]()}</main></div>${drawer()}${modal()}`}
 
 async function poll(){try{S.sub=await api(`/api/exams/${S.exam}/status`);S.err=''}catch(e){S.err=e.message}if(route()=='processing')render();if(S.sub.length&&S.sub.every(s=>s.status=='done'||s.status=='needs_review'))clearInterval(T)}
 async function load(){clearInterval(T);S.err='';const r=route();
@@ -181,14 +193,14 @@ async function run(){S.busy='Creating exam and uploading sheets…';S.err='';ren
 
 /* ---------------- login / registration ---------------- */
 const EYE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
-const LOGO='<svg viewBox="0 0 60 60" fill="none" stroke="#fff" stroke-width="3.5" aria-hidden="true"><circle cx="22" cy="30" r="17"/><circle cx="38" cy="30" r="17"/></svg>';
+const MARK='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="lmg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7B5FE6"/><stop offset="1" stop-color="#4A2C8F"/></linearGradient></defs><rect width="64" height="64" rx="16" fill="url(#lmg)"/><path d="M18 10h18l11 11v27a5 5 0 0 1-5 5H18a5 5 0 0 1-5-5V15a5 5 0 0 1 5-5z" fill="#fff"/><path d="M36 10l11 11H40a4 4 0 0 1-4-4z" fill="#E4DBFB"/><path d="M19 27c2.5-4 5-4 7 0s4.5 4 7 0" fill="none" stroke="#6C4FD8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 36c2.5-4 5-4 7 0s4.5 4 7 0" fill="none" stroke="#6C4FD8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/><circle cx="45" cy="46" r="12" fill="#F7C535" stroke="#4A2C8F" stroke-width="3"/><path d="M39.5 46.200l4 4 7-8" fill="none" stroke="#10105A" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const BLOBS='<svg class="blobs" viewBox="0 0 400 640" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4FC3F0"/><stop offset="1" stop-color="#6C4FD8"/></linearGradient><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E4DBFB" stop-opacity=".55"/><stop offset="1" stop-color="#6C4FD8" stop-opacity=".1"/></linearGradient><linearGradient id="g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7B5FE6"/><stop offset="1" stop-color="#4A2C8F"/></linearGradient></defs><path d="M-20 430C60 380 140 430 150 510S120 640 60 700L-20 700Z" fill="url(#g3)" opacity=".9"/><path d="M420 -20L420 220C340 200 300 130 330 60C345 20 380 0 420 -20Z" fill="url(#g2)"/><path d="M420 300C360 330 320 400 350 470C380 540 420 560 420 640Z" fill="url(#g2)"/><circle cx="300" cy="120" r="50" fill="url(#g1)" opacity=".85"/><circle cx="215" cy="205" r="16" fill="url(#g3)" opacity=".8"/><circle cx="340" cy="560" r="12" fill="#F7C535"/><circle cx="352" cy="270" r="7" fill="#F7C535" opacity=".9"/></svg>';
 function fld(id,label,type,o){o=o||{};const pw=type=='password';return `<label class="fld" for="${id}"><span>${label}${o.opt?' <span class="opt">(optional)</span>':''}</span>${pw?'<div class="pw">':''}<input id="${id}" name="${id}" type="${type}" ${o.ac?`autocomplete="${o.ac}"`:''} ${o.ph?`placeholder="${o.ph}"`:''} ${o.max?`maxlength="${o.max}"`:''} aria-describedby="${id}-m" ${o.req===false?'':'required'}>${pw?`<button type="button" class="eye" data-eye="${id}" aria-label="Show password" aria-pressed="false">${EYE}</button></div>`:''}<small class="msg" id="${id}-m" role="alert"></small></label>`}
-function authShell(h,sub,form){return `<div class="auth"><div class="auth-card"><aside class="auth-brand">${BLOBS}<div class="logo">${LOGO}<span>AnswerSheet AI</span></div><div>${ROBOT.replace('<svg ','<svg class="mascot" ')}<h2>${h}</h2><p>${sub}</p></div><div class="tag">Read. Check. Score.</div></aside><main class="auth-form">${form}</main></div></div>`}
+function authShell(h,sub,form){return `<div class="auth"><div class="auth-card"><aside class="auth-brand">${BLOBS}<div class="brand logo">${MARK}<span>AnswerSheet <em>AI</em></span></div><div>${ROBOT.replace('<svg ','<svg class="mascot" ')}<h2>${h}</h2><p>${sub}</p></div><div class="tag">Read. Check. Score.</div></aside><main class="auth-form">${form}</main></div></div>`}
 function login(){return authShell('Welcome Back','Sign in to check your next batch of answer sheets.',
 `<h1>Sign In</h1><p class="sub">Use the email you registered with.</p><div id="aerr"></div>
 <form data-auth="login" novalidate>${fld('email','Email address','email',{ac:'email',ph:'you@school.edu'})}${fld('password','Password','password',{ac:'current-password',ph:'Your password'})}
-<div class="auth-row"><label class="chk"><input type="checkbox" name="remember" id="remember"> Remember me</label></div>
+<div class="auth-row"><label class="chk"><input type="checkbox" name="remember" id="remember"> Remember me</label><a href="#forgot">Forgot password?</a></div>
 <button class="btn sun auth-btn" type="submit"><span class="sp" aria-hidden="true"></span><span class="lbl">Continue</span></button></form>
 <p class="auth-alt">New here? <a href="#register">Create an account</a></p>`)}
 function register(){return authShell('Join AnswerSheet AI','Create your account and check a whole class in minutes.',
@@ -199,6 +211,22 @@ ${fld('password','Password','password',{ac:'new-password',ph:'At least 8 charact
 <button class="btn sun auth-btn" type="submit"><span class="sp" aria-hidden="true"></span><span class="lbl">Create Account</span></button></form>
 <p class="auth-alt">Already have an account? <a href="#login">Sign in</a></p>`)}
 
+const METER='<div class="meter" id="meter" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="meter-l" id="meter-l"></div>';
+function hashToken(){const m=/[?&]token=([^&]+)/.exec(location.hash);try{return m?decodeURIComponent(m[1]):''}catch(e){return ''}}
+function forgot(){return authShell('Forgot your password?','No worries. Tell us your email and we will send you a link to choose a new one.',
+`<h1>Reset Password</h1><p class="sub">We will email you a reset link.</p><div id="aerr"></div>
+<form data-auth="forgot" novalidate>${fld('email','Email address','email',{ac:'email',ph:'you@school.edu'})}
+<button class="btn sun auth-btn" type="submit"><span class="sp" aria-hidden="true"></span><span class="lbl">Send reset link</span></button></form>
+<div class="okbox" id="adone" role="status" hidden><p id="adone-t"></p><small>Nothing in your inbox? Check spam, or try again in a few minutes.</small><button type="button" data-again>Use a different email</button></div>
+<p class="auth-alt"><a href="#login">Back to sign in</a></p>`)}
+function reset(){const tok=hashToken();return authShell('Choose a new password','Pick something strong that you have not used here before.',tok?
+`<h1>New Password</h1><p class="sub">Your new password must be at least 8 characters.</p><div id="aerr"></div>
+<form data-auth="reset" novalidate>${fld('password','New password','password',{ac:'new-password',ph:'At least 8 characters'}).replace('<small class="msg"',METER+'<small class="msg"')}${fld('confirm','Confirm new password','password',{ac:'new-password',ph:'Type it again'})}
+<button class="btn sun auth-btn" type="submit"><span class="sp" aria-hidden="true"></span><span class="lbl">Update password</span></button></form>
+<p class="auth-alt">Link not working? <a href="#forgot">Request a new one</a></p>`:
+`<h1>Link not valid</h1><div class="err" role="alert">This reset link is incomplete. Please open the link from your email again, or request a new one.</div>
+<p class="auth-alt"><a href="#forgot">Request a new link</a> &middot; <a href="#login">Back to sign in</a></p>`)}
+
 // keep what was typed if the page re-renders (e.g. window resize does not, but a hash change might)
 function authKeep(){const f=document.querySelector('form[data-auth]');if(!f)return null;const o={};f.querySelectorAll('input').forEach(i=>{o[i.id]=i.type=='checkbox'?i.checked:i.value});return {m:f.dataset.auth,o}}
 function authRestore(k){if(!k||!document.querySelector(`form[data-auth="${k.m}"]`))return;for(const id in k.o){const i=document.getElementById(id);if(i&&i.type!='password'){if(i.type=='checkbox')i.checked=k.o[id];else i.value=k.o[id]}}}
@@ -208,18 +236,25 @@ function fmsg(id,m){const i=document.getElementById(id),s=document.getElementByI
 function authBanner(m){const b=$('#aerr');if(b)b.innerHTML=m?`<div class="err" role="alert">${E(m)}</div>`:''}
 function validate(mode,v){const bad=[];const chk=(id,m)=>{if(fmsg(id,m))bad.push(id)};
  if(mode=='register')chk('full_name',v.full_name.trim().length<2?'Please enter your full name.':'');
- chk('email',!v.email.trim()?'Email is required.':!EMAIL_RE.test(v.email.trim())?'Enter a valid email address.':'');
+ if(mode!='reset')chk('email',!v.email.trim()?'Email is required.':!EMAIL_RE.test(v.email.trim())?'Enter a valid email address.':'');
  if(mode=='login')chk('password',!v.password?'Password is required.':'');
- else{chk('password',v.password.length<8?'Use at least 8 characters.':'');chk('confirm',!v.confirm?'Please confirm your password.':v.confirm!==v.password?'Passwords do not match.':'');if(!v.terms){bad.push('terms');$('#terms-m').textContent='Please accept the Terms and Privacy Policy.'}else $('#terms-m').textContent=''}
+ if(mode=='register'||mode=='reset'){chk('password',v.password.length<8?'Use at least 8 characters.':'');chk('confirm',!v.confirm?'Please confirm your password.':v.confirm!==v.password?'Passwords do not match.':'')}
+ if(mode=='register'){if(!v.terms){bad.push('terms');$('#terms-m').textContent='Please accept the Terms and Privacy Policy.'}else $('#terms-m').textContent=''}
  return bad}
 function strength(p){let s=0;if(p.length>=8)s++;if(p.length>=12)s++;if(/[a-z]/.test(p)&&/[A-Z]/.test(p))s++;if(/\d/.test(p)&&/[^A-Za-z0-9]/.test(p))s++;if(/\d/.test(p)||/[^A-Za-z0-9]/.test(p))s=Math.max(s,p.length>=8?2:1);return p?Math.min(4,Math.max(1,s)):0}
-async function handleAuth(f){const mode=f.dataset.auth,g=id=>f.elements[id],v={full_name:g('full_name')?g('full_name').value:'',email:g('email').value,password:g('password').value,confirm:g('confirm')?g('confirm').value:'',institution:g('institution')?g('institution').value:'',terms:g('terms')?g('terms').checked:true,remember:g('remember')?g('remember').checked:false};
+async function handleAuth(f){const mode=f.dataset.auth,val=id=>f.elements[id]?f.elements[id].value:'',on=id=>f.elements[id]?f.elements[id].checked:true;
+ const v={full_name:val('full_name'),email:val('email'),password:val('password'),confirm:val('confirm'),institution:val('institution'),terms:on('terms'),remember:f.elements['remember']?f.elements['remember'].checked:false};
  authBanner('');const bad=validate(mode,v);if(bad.length){const el=document.getElementById(bad[0]);if(el)el.focus();return}
  const btn=f.querySelector('.auth-btn');btn.disabled=true;btn.classList.add('busy');
- try{const body=mode=='login'?{email:v.email,password:v.password,remember:v.remember}:{full_name:v.full_name,email:v.email,password:v.password,institution:v.institution};
-  const r=await api('/api/auth/'+mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ const post=(path,body)=>api('/api/auth/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ try{
+  if(mode=='forgot'){const r=await post('forgot-password',{email:v.email});f.hidden=true;$('#adone-t').textContent=r.message;$('#adone').hidden=false;return}
+  if(mode=='reset'){await post('reset-password',{token:hashToken(),password:v.password});toast('Password updated. Please sign in with your new password.');logout();return}
+  const r=await (mode=='login'?post('login',{email:v.email,password:v.password,remember:v.remember}):post('register',{full_name:v.full_name,email:v.email,password:v.password,institution:v.institution}));
   saveSession(r.token,r.user,mode=='login'?v.remember:false);S.tok=r.token;S.user=r.user;toast(mode=='login'?'Welcome back, '+r.user.full_name.split(' ')[0]+'!':'Account created. Welcome!');go('dashboard')}
- catch(e){authBanner(e.message);btn.disabled=false;btn.classList.remove('busy')}}
+ catch(e){authBanner(e.message)}
+ finally{btn.disabled=false;btn.classList.remove('busy')}}
+document.addEventListener('click',e=>{if(!e.target.closest('[data-again]'))return;const f=document.querySelector('form[data-auth=forgot]');f.hidden=false;$('#adone').hidden=true;f.elements['email'].focus()});
 document.addEventListener('submit',e=>{const f=e.target.closest('form[data-auth]');if(!f)return;e.preventDefault();handleAuth(f)});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-eye]');if(!b)return;const i=document.getElementById(b.dataset.eye),show=i.type=='password';i.type=show?'text':'password';b.setAttribute('aria-pressed',show);b.setAttribute('aria-label',show?'Hide password':'Show password')});
 document.addEventListener('input',e=>{const t=e.target;if(t.closest&&t.closest('form[data-auth]')){if(t.type!='checkbox')fmsg(t.id,'');else if(t.id=='terms')$('#terms-m').textContent=''}

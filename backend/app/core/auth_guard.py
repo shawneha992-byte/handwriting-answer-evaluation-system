@@ -8,7 +8,7 @@ from starlette.responses import JSONResponse
 from app.core.config import settings
 from app.core.security import decode_token
 
-PUBLIC_PATHS = {"/api/health", "/api/auth/login", "/api/auth/register"}
+PUBLIC_PATHS = {"/api/health", "/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password"}
 
 
 def bearer_token(headers) -> str | None:
