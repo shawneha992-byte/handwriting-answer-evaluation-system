@@ -70,3 +70,16 @@ class PaperCache(Base):
     result_json: Mapped[str] = mapped_column(Text)
     source: Mapped[str] = mapped_column(String(30), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class User(Base):
+    """A teacher account (authentication layer). Exams are not linked to users yet."""
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    full_name: Mapped[str] = mapped_column(String(120))
+    email: Mapped[str] = mapped_column(String(254), unique=True, index=True)
+    institution: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

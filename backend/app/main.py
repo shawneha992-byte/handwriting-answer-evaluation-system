@@ -5,8 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
+from app.core.auth_guard import AuthGuardMiddleware
 from app.core.database import init_db
-from app.routes import exams, system
+from app.routes import auth, exams, system
 
 
 @asynccontextmanager
@@ -17,8 +18,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Handwriting Answer Evaluation API", description="LLM-based answer sheet checking and scoring", version="2.0", lifespan=lifespan)
+app.add_middleware(AuthGuardMiddleware)  # login required for /api (added before CORS so CORS headers stay on 401 replies)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])  # lets frontend/index.html work when opened as a file
 
+app.include_router(auth.router, prefix="/api")
 app.include_router(system.router, prefix="/api")
 app.include_router(exams.router, prefix="/api")
 

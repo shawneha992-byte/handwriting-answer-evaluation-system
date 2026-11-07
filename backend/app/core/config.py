@@ -26,11 +26,7 @@ class Settings:
     OLLAMA_URL = os.getenv("OLLAMA_URL", OLLAMA_BASE_URL).rstrip("/")
     OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3-vl:4b-instruct")
     OLLAMA_KEEP_ALIVE = os.getenv("OLLAMA_KEEP_ALIVE", "5m")
-    OLLAMA_TIMEOUT_SECONDS = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "600"))
-    OLLAMA_RETRIES = int(os.getenv("OLLAMA_RETRIES", "2"))
-    OLLAMA_RETRY_DELAY_SECONDS = float(os.getenv("OLLAMA_RETRY_DELAY_SECONDS", "3"))
-    OLLAMA_MAX_IMAGE_DIMENSION = int(os.getenv("OLLAMA_MAX_IMAGE_DIMENSION", "1800"))
-    OLLAMA_JPEG_QUALITY = int(os.getenv("OLLAMA_JPEG_QUALITY", "88"))
+    OLLAMA_TIMEOUT_SECONDS = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "300"))
 
     TESSERACT_CMD = os.getenv("TESSERACT_CMD", "")
     MIN_PAGE_TEXT_CHARS = int(os.getenv("MIN_PAGE_TEXT_CHARS", "40"))
@@ -39,9 +35,15 @@ class Settings:
     UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(BASE_DIR / "uploads")))
     FRONTEND_DIR = BASE_DIR.parent / "frontend"
     MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "20"))
+    PROCESSING_WORKERS = int(os.getenv("PROCESSING_WORKERS", "2"))
 
     MIN_CONFIDENCE = float(os.getenv("MIN_CONFIDENCE", "0.6"))
     NUMERIC_TOLERANCE = float(os.getenv("NUMERIC_TOLERANCE", "0.01"))
+
+    # Login / registration (authentication layer)
+    AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "true").strip().lower() not in ("0", "false", "no", "off")
+    AUTH_SECRET_KEY = os.getenv("AUTH_SECRET_KEY", "")  # leave empty to auto-create backend/.auth_secret
+    AUTH_TOKEN_HOURS = int(os.getenv("AUTH_TOKEN_HOURS", "12"))
 
 
 settings = Settings()
