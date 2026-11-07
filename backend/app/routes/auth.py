@@ -53,6 +53,11 @@ class LoginIn(BaseModel):
     remember: bool = False
 
 
+class ProfileUpdateIn(BaseModel):
+    full_name: str
+    institution: str | None = None
+
+
 def public_user(user: User) -> dict:
     return {"id": user.id, "full_name": user.full_name, "email": user.email, "institution": user.institution}
 
@@ -128,6 +133,22 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
 
 @router.get("/me")
 def me(user: User = Depends(current_user)):
+    return public_user(user)
+
+
+@router.patch("/me")
+def update_me(body: ProfileUpdateIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Update non-sensitive profile fields only; authentication credentials remain unchanged."""
+    name = " ".join(body.full_name.split())
+    institution = (body.institution or "").strip() or None
+    if len(name) < 2 or len(name) > 120:
+        raise HTTPException(422, "Please enter your full name (2–120 characters).")
+    if institution and len(institution) > 150:
+        raise HTTPException(422, "Institution must be 150 characters or fewer.")
+    user.full_name = name
+    user.institution = institution
+    db.commit()
+    db.refresh(user)
     return public_user(user)
 
 

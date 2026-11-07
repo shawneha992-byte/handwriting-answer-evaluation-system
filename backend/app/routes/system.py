@@ -61,7 +61,7 @@ def dashboard(db: Session = Depends(get_db)):
     done = db.query(Submission).filter(Submission.status == "done").all()
     pcts = [round((s.total_score or 0) / s.exam.total_marks * 100) for s in done if s.exam.total_marks]
     recent = []
-    for e in exams[:5]:
+    for e in exams:
         busy = any(s.status in ("queued", "reading") for s in e.submissions)
         review = sum(s.status == "needs_review" for s in e.submissions)
         recent.append({"id": e.id, "title": e.title, "sheets": len(e.submissions), "needs_review": review,

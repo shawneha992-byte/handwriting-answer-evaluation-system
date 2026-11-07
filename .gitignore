@@ -221,3 +221,15 @@ __marimo__/
 
 # Login token signing key (auto-created)
 .auth_secret
+
+# Local secrets, databases, uploads and runtime artifacts
+backend/.env
+backend/.auth_secret
+backend/dev.db
+backend/*.db
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/venv/
+backend/.venv/
+backend/.pytest_cache/
+*.log
