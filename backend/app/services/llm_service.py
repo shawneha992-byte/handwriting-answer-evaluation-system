@@ -36,12 +36,15 @@ class LLMError(Exception):
 
 
 PAPER_PROMPT = """Read this printed examination question paper. Return ONLY a JSON object:
-{"title":"string","negative_marking":0,"questions":[{"number":1,"text":"question text and options","type":"MCQ or Numeric","marks":1,"correct_answer":""}]}
+{"title":"string","negative_marking":0,"questions":[{"number":1,"text":"question text and options","type":"MCQ, Numeric, FillBlank, ShortAnswer, TrueFalse, Formula, Date, Matching or Descriptive","marks":1,"correct_answer":""}]}
 Rules:
 - Preserve the question numbers printed on the paper.
 - Use the marks printed for each question; if marks are printed once for a section, apply them to each question in that section.
 - negative_marking is a negative number (example -0.5); use 0 if none is stated.
-- type is MCQ when options are shown; otherwise Numeric.
+- Automatically classify each question: MCQ (options), FillBlank (visible blank/underscores or fill-in instruction), TrueFalse, Matching, Date, Formula, Numeric (calculation/result), ShortAnswer (brief factual response), or Descriptive (explain/discuss/justify/long response).
+- Do not classify every non-MCQ question as Numeric. Preserve the actual answer format implied by the question.
+- Do NOT output instructions such as 'Answer all questions', 'Show your calculations' or 'Each question carries 2 marks' as questions; use them only to fill marks.
+- A bare calculation such as '4,678 + 2,145 = ____' is Numeric, not FillBlank. FillBlank is only for a sentence with a missing word or value.
 - Include all MCQ options in text.
 - Leave correct_answer empty unless the paper itself contains the answer.
 - Do not invent missing questions or marks. Use marks 0 if not visible.
@@ -56,7 +59,7 @@ TEXT:
 
 KEY_PROMPT = """Read this examination answer key. Return ONLY JSON:
 {"answers":{"1":"B","2":"42"}}
-Map each visible question number to its correct answer. Use uppercase letters for MCQs and plain numeric values for numeric answers. Do not guess unclear entries; omit them.
+Map each visible question number to its correct answer. Preserve the complete expected answer for each question, including words, phrases, numbers, formulas, dates, true/false values and accepted alternatives. Do not truncate answers. Do not guess unclear entries; omit them.
 """
 
 SHEET_PROMPT = """You are transcribing a student's handwritten examination answer sheet.
@@ -76,6 +79,8 @@ Rules:
 - Do not use question wording to guess an answer. Context is only for matching question numbers.
 - Preserve mathematical signs, decimal points, fractions and written values. Do not add units.
 - For MCQs, return only the clearly selected option letter (A, B, C or D).
+- For FillBlank, ShortAnswer, TrueFalse, Formula, Date and Matching questions, transcribe the student response as written, preserving words, numbers, signs, units and symbols.
+- For a question whose type is Descriptive, transcribe the student's whole written answer word for word as plain text. Keep their spelling and wording; do not summarise, correct or improve it.
 - A visibly blank/unattempted answer must be answer="" and confidence=1.
 - If writing exists but cannot be read reliably, use answer=null and low confidence.
 - Never assign writing to a question number unless the match is clear.
@@ -129,7 +134,7 @@ def _extract_json(text: str) -> dict:
     return value
 
 
-def _resize_image_bytes(data: bytes, mime: str) -> tuple[bytes, str]:
+def _resize_image_bytes(data: bytes, mime: str, max_dim: int | None = None) -> tuple[bytes, str]:
     """Create a smaller in-memory image for the vision model; never modify the upload."""
     if Image is None:
         # Resizing is an optimisation, not a reason to reject an otherwise valid upload.
@@ -138,7 +143,7 @@ def _resize_image_bytes(data: bytes, mime: str) -> tuple[bytes, str]:
         with Image.open(io.BytesIO(data)) as opened:
             image = opened.copy()
             image.thumbnail(
-                (int(getattr(settings, "OLLAMA_MAX_IMAGE_DIMENSION", 1800)),) * 2,
+                (int(max_dim or getattr(settings, "OLLAMA_MAX_IMAGE_DIMENSION", 1800)),) * 2,
                 Image.Resampling.LANCZOS,
             )
             output = io.BytesIO()
@@ -159,7 +164,7 @@ def _resize_image_bytes(data: bytes, mime: str) -> tuple[bytes, str]:
         raise LLMError(f"Could not prepare uploaded image for Ollama: {exc}") from exc
 
 
-def _image_payloads(data: bytes, mime: str) -> list[str]:
+def _image_payloads(data: bytes, mime: str, max_dim: int | None = None) -> list[str]:
     """Return optimised base64 image(s); the original uploaded bytes are untouched."""
     if mime == "application/pdf":
         if fitz is None:
@@ -178,7 +183,7 @@ def _image_payloads(data: bytes, mime: str) -> list[str]:
                 for page in doc:
                     pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
                     raw = pix.tobytes("png")
-                    prepared, _ = _resize_image_bytes(raw, "image/png")
+                    prepared, _ = _resize_image_bytes(raw, "image/png", max_dim)
                     images.append(base64.b64encode(prepared).decode("ascii"))
             finally:
                 doc.close()
@@ -190,16 +195,17 @@ def _image_payloads(data: bytes, mime: str) -> list[str]:
 
     if mime not in {"image/jpeg", "image/png", "image/webp"}:
         raise LLMError(f"Unsupported image type for Ollama: {mime}")
-    prepared, _prepared_mime = _resize_image_bytes(data, mime)
+    prepared, _prepared_mime = _resize_image_bytes(data, mime, max_dim)
     return [base64.b64encode(prepared).decode("ascii")]
 
 
-def _ollama_json(prompt: str, data: bytes | None = None, mime: str | None = None) -> dict:
+def _ollama_json(prompt: str, data: bytes | None = None, mime: str | None = None, max_dim: int | None = None,
+                 model: str | None = None) -> dict:
     base_url = str(settings.OLLAMA_URL).rstrip("/")
-    model = str(settings.OLLAMA_MODEL).strip()
+    model = str(model or settings.OLLAMA_MODEL).strip()
     if not model:
         raise LLMError("OLLAMA_MODEL is empty. Set it in backend/.env.")
-    images = _image_payloads(data, mime) if data is not None else []
+    images = _image_payloads(data, mime, max_dim) if data is not None else []
     message: dict[str, Any] = {"role": "user", "content": prompt}
     if images:
         message["images"] = images
@@ -284,10 +290,10 @@ def _gemini_json(prompt: str, data: bytes | None = None, mime: str | None = None
     return _extract_json(text)
 
 
-def _call(prompt: str, data: bytes | None = None, mime: str | None = None) -> dict:
+def _call(prompt: str, data: bytes | None = None, mime: str | None = None, max_dim: int | None = None) -> dict:
     provider = str(settings.LLM_PROVIDER).lower()
     if provider == "ollama":
-        return _ollama_json(prompt, data, mime)
+        return _ollama_json(prompt, data, mime, max_dim)
     if provider == "gemini":
         return _gemini_json(prompt, data, mime)
     raise LLMError(f"Unsupported LLM_PROVIDER '{provider}'. Use 'ollama', 'gemini', or 'mock'.")
@@ -360,12 +366,12 @@ def parse_key_image(data: bytes, mime: str, numbers: list[int] | None = None) ->
     return {"answers": {str(k): str(v).strip() for k, v in answers.items() if v is not None and str(v).strip()}}
 
 
-def parse_sheet(data: bytes, mime: str, questions: list[dict]) -> dict:
+def parse_sheet(data: bytes, mime: str, questions: list[dict], max_dim: int | None = None) -> dict:
     if settings.LLM_PROVIDER == "mock":
         return _mock_sheet(data, questions)
     context = [{"number": int(q.get("number")), "type": str(q.get("type") or "MCQ"),
                 "text": str(q.get("text") or "")[:500]} for q in questions]
-    result = _call(SHEET_PROMPT.format(questions=json.dumps(context, ensure_ascii=False)), data, mime)
+    result = _call(SHEET_PROMPT.format(questions=json.dumps(context, ensure_ascii=False)), data, mime, max_dim)
     if not isinstance(result.get("answers"), list):
         raise LLMError("The model did not return an answers list for the student sheet.")
     return result

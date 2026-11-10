@@ -55,7 +55,7 @@ def test_full_pipeline():
         assert len(res["rows"]) + len(un) == 12
 
         if un:
-            assert c.post(f"/api/exams/submissions/{un[0]['id']}/manual", json={"marks": 33}).json() == {"ok": True}
+            assert c.post(f"/api/exams/submissions/{un[0]['id']}/manual", json={"marks": 33}).json()["ok"] is True
             assert c.post(f"/api/exams/submissions/{un[0]['id']}/manual", json={"marks": 99}).status_code == 422
         x = c.get(f"/api/exams/{exam_id}/export")
         assert x.status_code == 200 and x.content[:2] == b"PK"
@@ -65,35 +65,33 @@ def test_full_pipeline():
         assert c.post("/api/exams/parse-paper", files={"file": ("x.exe", b"x")}).status_code == 400
 
 
-def test_answer_key_text_parser():
-    from app.routes.exams import key_from_text
-    parsed = key_from_text("Q1: a\n2. B\nQuestion 3 - 42\n4) 3/4\nnoise")
-    assert parsed == {"1": "A", "2": "B", "3": "42", "4": "3/4"}
+def test_answer_key_table_parser():
+    from app.routes.exams import key_from_table
+    rows = [("Q", "Answer"), ("Q1", "A"), ("2", "B"), ("Q3", 42.0), ("4", "3/4"), ("noise", "x"), ("5", None)]
+    assert key_from_table(rows) == {"1": "A", "2": "B", "3": "42", "4": "3/4"}
 
 
-def test_parse_key_uses_local_extraction_before_gemini(monkeypatch):
-    from app.services import question_paper_reader, llm_service
+def test_parse_key_reads_the_key_locally_before_asking_the_llm(monkeypatch):
+    from app.services import answer_key_reader
 
-    monkeypatch.setattr(
-        question_paper_reader,
-        "read_paper",
-        lambda data, suffix: {
-            "text": "Q1: A\n2. 42\nQ3 - C",
-            "pages": [{"page": 1, "method": "ocr", "characters": 18, "needs_review": True}],
-            "file_hash": "test",
-            "usable": False,
-        },
-    )
-    monkeypatch.setattr(
-        llm_service,
-        "parse_key_image",
-        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("Gemini should not be called")),
-    )
+    monkeypatch.setattr(answer_key_reader, "read_with_tesseract", lambda data, suffix: ("Q1: A\n2. 42\nQ3 - C", None))
+    monkeypatch.setattr(answer_key_reader, "read_with_ollama",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("the LLM must not be called")))
     with TestClient(app) as client:
-        response = client.post(
-            "/api/exams/parse-key",
-            files={"file": ("key.pdf", b"fake-pdf", "application/pdf")},
-        )
+        response = client.post("/api/exams/parse-key", files={"file": ("key.pdf", b"%PDF-fake", "application/pdf")})
     assert response.status_code == 200
     assert response.json()["answers"] == {"1": "A", "2": "42", "3": "C"}
     assert response.json()["source"] == "tesseract"
+
+
+def test_parse_key_reports_a_key_nobody_could_read(monkeypatch):
+    from app.services import answer_key_reader
+
+    monkeypatch.setattr(answer_key_reader, "read_with_tesseract", lambda data, suffix: ("", None))
+
+    def fail(data, suffix):
+        raise answer_key_reader.AnswerKeyReadError("model unavailable")
+    monkeypatch.setattr(answer_key_reader, "read_with_ollama", fail)
+    with TestClient(app) as client:
+        response = client.post("/api/exams/parse-key", files={"file": ("key.pdf", b"%PDF-fake", "application/pdf")})
+    assert response.status_code == 422

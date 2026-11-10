@@ -9,12 +9,20 @@ def build_workbook(exam, rows, review) -> bytes:
     head = Font(bold=True, color="FFFFFF")
     fill = PatternFill("solid", fgColor="4A2C8F")
 
+    def put_text_safely(ws, values):
+        """Write a row. openpyxl turns any string that starts with '=' into a formula, and names and answers come
+        from handwriting, so every string is forced to be plain text."""
+        ws.append(values)
+        for cell in ws[ws.max_row]:
+            if isinstance(cell.value, str):
+                cell.data_type = "s"
+
     def sheet(ws, header, data):
         ws.append(header)
         for c in ws[1]:
             c.font, c.fill = head, fill
         for r in data:
-            ws.append(r)
+            put_text_safely(ws, r)
         for col in ws.columns:
             ws.column_dimensions[col[0].column_letter].width = min(40, max(10, max(len(str(c.value or "")) for c in col) + 2))
 

@@ -2,9 +2,10 @@ import requests
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.access import optional_user
 from app.core.config import settings
 from app.core.database import get_db
-from app.models import Exam, Submission
+from app.models import Exam, Submission, User
 
 router = APIRouter(tags=["system"])
 
@@ -56,9 +57,14 @@ def config():
 
 
 @router.get("/dashboard")
-def dashboard(db: Session = Depends(get_db)):
-    exams = db.query(Exam).order_by(Exam.id.desc()).all()
-    done = db.query(Submission).filter(Submission.status == "done").all()
+def dashboard(db: Session = Depends(get_db), user: User | None = Depends(optional_user)):
+    query = db.query(Exam)
+    if user is not None:
+        query = query.filter(Exam.owner_id == user.id)
+    exams = query.order_by(Exam.id.desc()).all()
+    ids = [e.id for e in exams]
+    mine = Submission.exam_id.in_(ids) if ids else Submission.id < 0  # no exams -> match nothing
+    done = db.query(Submission).filter(Submission.status == "done", mine).all()
     pcts = [round((s.total_score or 0) / s.exam.total_marks * 100) for s in done if s.exam.total_marks]
     recent = []
     for e in exams:
@@ -68,4 +74,4 @@ def dashboard(db: Session = Depends(get_db)):
                        "status": "Checking" if busy else ("Needs review" if review else "Done")})
     return {"exams": len(exams), "sheets_checked": len(done),
             "average": round(sum(pcts) / len(pcts)) if pcts else 0,
-            "needs_review": db.query(Submission).filter(Submission.status == "needs_review").count(), "recent": recent}
+            "needs_review": db.query(Submission).filter(Submission.status == "needs_review", mine).count(), "recent": recent}

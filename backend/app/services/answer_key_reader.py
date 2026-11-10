@@ -78,7 +78,10 @@ def extract_answers_from_text(text: str) -> dict[str, str]:
             continue
         number, raw_value = match.groups()
         value = _clean_answer(raw_value)
-        if not value or re.search(r"[=+*/]", value):
+        if not value or re.search(r"[=+*]", value):
+            continue
+        # A slash is fine inside a plain fraction (1/2, -3/4); anything else with a slash is working, not an answer.
+        if "/" in value and not re.fullmatch(r"-?\d+\s*/\s*\d+", value):
             continue
         # Ignore prose, question statements, and long workings.
         if len(value) > 80:

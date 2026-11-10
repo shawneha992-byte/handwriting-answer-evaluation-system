@@ -12,6 +12,7 @@ class Exam(Base):
     title: Mapped[str] = mapped_column(String(200))
     total_marks: Mapped[float] = mapped_column(Float, default=0)
     negative_marking: Mapped[float] = mapped_column(Float, default=0)  # e.g. -0.5 per wrong answer
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)  # the teacher who created it
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     questions: Mapped[list["Question"]] = relationship(back_populates="exam", order_by="Question.number", cascade="all, delete-orphan")
     submissions: Mapped[list["Submission"]] = relationship(back_populates="exam", cascade="all, delete-orphan")
@@ -24,9 +25,11 @@ class Question(Base):
     exam_id: Mapped[int] = mapped_column(ForeignKey("exams.id"))
     number: Mapped[int] = mapped_column(Integer)
     text: Mapped[str] = mapped_column(Text, default="")
-    type: Mapped[str] = mapped_column(String(20), default="MCQ")  # MCQ | Numeric (Descriptive later)
+    type: Mapped[str] = mapped_column(String(30), default="MCQ")  # auto-detected question type
     marks: Mapped[float] = mapped_column(Float, default=1)
-    correct_answer: Mapped[str] = mapped_column(String(100), default="")
+    correct_answer: Mapped[str] = mapped_column(Text, default="")
+    rubric_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # Descriptive: [{"criterion": "...", "marks": 2}]
+    model_answer: Mapped[str] = mapped_column(Text, default="")  # Descriptive: optional teacher model answer
     exam: Mapped[Exam] = relationship(back_populates="questions")
 
 
@@ -55,11 +58,15 @@ class Answer(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     submission_id: Mapped[int] = mapped_column(ForeignKey("submissions.id"))
     question_number: Mapped[int] = mapped_column(Integer)
-    student_answer: Mapped[str] = mapped_column(String(255), default="")
-    correct_answer: Mapped[str] = mapped_column(String(100), default="")
-    result: Mapped[str] = mapped_column(String(20))  # correct | wrong | unanswered | unreadable
+    student_answer: Mapped[str] = mapped_column(Text, default="")
+    correct_answer: Mapped[str] = mapped_column(Text, default="")
+    result: Mapped[str] = mapped_column(String(20))  # correct | partial | wrong | unanswered | unreadable
     marks: Mapped[float] = mapped_column(Float, default=0)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    feedback: Mapped[str | None] = mapped_column(Text, nullable=True)  # Descriptive: per-criterion marks and reasons
+    citations_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # Descriptive: sources behind the marks
+    retrieval_score: Mapped[float | None] = mapped_column(Float, nullable=True)  # best cosine match for the question
+    needs_review: Mapped[bool] = mapped_column(Boolean, default=False)  # Descriptive: AI grade the teacher should check
     submission: Mapped[Submission] = relationship(back_populates="answers")
 
 
@@ -73,7 +80,7 @@ class PaperCache(Base):
 
 
 class User(Base):
-    """A teacher account (authentication layer). Exams are not linked to users yet."""
+    """A teacher account. Each Exam has an owner_id pointing here, and the API only shows a teacher their own exams."""
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True)
     full_name: Mapped[str] = mapped_column(String(120))
@@ -83,3 +90,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+# Imported last so the reference-material tables are created together with the rest.
+from app.rag import models as _rag_models  # noqa: E402,F401

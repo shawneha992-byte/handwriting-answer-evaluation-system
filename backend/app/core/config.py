@@ -40,6 +40,26 @@ class Settings:
     MIN_CONFIDENCE = float(os.getenv("MIN_CONFIDENCE", "0.6"))
     NUMERIC_TOLERANCE = float(os.getenv("NUMERIC_TOLERANCE", "0.01"))
 
+    # Sheets that never finished (server stopped mid-batch)
+    RECOVER_ON_START = os.getenv("RECOVER_ON_START", "true").strip().lower() not in ("0", "false", "no", "off")
+    STALE_MINUTES = int(os.getenv("STALE_MINUTES", "30"))  # a sheet "reading" for longer than this is treated as stuck
+
+    # Optional second reading of each sheet at a lower resolution; any answer the two readings disagree on goes to review
+    SECOND_READ = os.getenv("SECOND_READ", "false").strip().lower() in ("1", "true", "yes", "on")
+    SECOND_READ_MAX_DIM = int(os.getenv("SECOND_READ_MAX_DIM", "1200"))
+
+    # Retrieval-augmented grading of descriptive answers
+    EMBED_PROVIDER = os.getenv("EMBED_PROVIDER", "ollama").strip().lower()  # ollama | hash (hash is for tests)
+    EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
+    GRADER_MODEL = os.getenv("OLLAMA_GRADER_MODEL", "llama3.1:8b")  # a text model; the vision model only reads handwriting
+    RAG_CHUNK_CHARS = int(os.getenv("RAG_CHUNK_CHARS", "900"))
+    RAG_CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "150"))
+    RAG_TOP_K = int(os.getenv("RAG_TOP_K", "6"))
+    RAG_MIN_SCORE = float(os.getenv("RAG_MIN_SCORE", "0.35"))  # best cosine below this = weak match; tune on your own data
+    RAG_MARK_STEP = float(os.getenv("RAG_MARK_STEP", "0.25"))
+    # nomic-embed-text returns 768 dimensions; PostgreSQL pgvector column uses this fixed dimension.
+    RAG_EMBED_DIM = int(os.getenv("RAG_EMBED_DIM", "768"))
+
     # Login / registration (authentication layer)
     AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "true").strip().lower() not in ("0", "false", "no", "off")
     AUTH_SECRET_KEY = os.getenv("AUTH_SECRET_KEY", "")  # leave empty to auto-create backend/.auth_secret

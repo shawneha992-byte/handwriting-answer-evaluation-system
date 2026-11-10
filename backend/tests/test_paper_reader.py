@@ -95,7 +95,7 @@ def test_gemini_gets_text_only_and_second_upload_is_cached(monkeypatch):
     with TestClient(app) as c:
         a = c.post("/api/exams/parse-paper", files={"file": ("p.pdf", pdf, "application/pdf")}).json()
         b = c.post("/api/exams/parse-paper", files={"file": ("again.pdf", pdf, "application/pdf")}).json()
-    assert a["source"] == "gemini-text" and b["source"] == "cache"
+    assert a["source"] == "llm-text" and b["source"] == "cache"
     assert len(calls) == 1 and calls[0] is None  # one request, no file attached
     assert a["questions"][0]["marks"] == 0  # unknown marks become 0 for the teacher to fill
 
@@ -105,5 +105,41 @@ def test_corrupt_file_falls_back_to_gemini_file(monkeypatch):
     monkeypatch.setattr(llm_service, "_gemini_json", lambda p, data=None, mime=None: seen.update(d=data) or {"title": "x", "negative_marking": 0, "questions": [{"number": 1, "marks": 1}]})
     with TestClient(app) as c:
         r = c.post("/api/exams/parse-paper", files={"file": ("p.pdf", b"%PDF-broken", "application/pdf")}).json()
-    assert r["source"] == "gemini-file" and seen["d"] == b"%PDF-broken"
+    assert r["source"] == "llm-file" and seen["d"] == b"%PDF-broken"
 
+
+
+def test_fill_blank_and_mixed_question_type_detection():
+    text = """Mixed AI Test\nEach question carries 1 mark.\nSECTION A\n1. AI is the simulation of human ______.\n2. Choose the correct option: (A) 1 (B) 2 (C) 3 (D) 4\n3. Calculate 12 x 4.\n4. State whether the Earth is round: True or False.\n5. Explain supervised learning.\n"""
+    parsed = qp.parse_rules(text)
+    assert parsed is not None
+    assert [q["type"] for q in parsed["questions"]] == [
+        "FillBlank", "MCQ", "Numeric", "TrueFalse", "Descriptive"
+    ]
+
+
+def test_cached_paper_reclassifies_stale_types(monkeypatch):
+    # Seed the cache with the old incorrect Numeric type for a visible blank.
+    from app.core.database import SessionLocal
+    from app.models import PaperCache
+    import json
+
+    pdf = make_pdf("AI Fill Test\nEach question carries 1 mark.\n1. AI is the simulation of human ______.\n")
+    doc = reader.read_paper(pdf, ".pdf")
+    db = SessionLocal()
+    try:
+        db.merge(PaperCache(file_hash=doc["file_hash"], result_json=json.dumps({
+            "title": "AI Fill Test", "negative_marking": 0,
+            "questions": [{"number": 1, "text": "AI is the simulation of human ______.",
+                           "type": "Numeric", "marks": 1, "correct_answer": ""}]
+        }), source="old-rules"))
+        db.commit()
+    finally:
+        db.close()
+
+    with TestClient(app) as c:
+        response = c.post("/api/exams/parse-paper", files={"file": ("same.pdf", pdf, "application/pdf")})
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["source"] == "cache"
+    assert payload["questions"][0]["type"] == "FillBlank"
